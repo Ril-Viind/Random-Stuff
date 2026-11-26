@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:pathly_app/core/config/api_config.dart';
+import 'package:pathly_app/core/services/auth_service.dart';
 
 class LessonService {
   static String get baseUrl => ApiConfig.baseUrl;
@@ -65,13 +66,13 @@ class LessonService {
   /// Mark a lesson as completed
   static Future<Map<String, dynamic>> completeLesson(String lessonId) async {
     try {
-      final token = await _getToken();
+      var token = await _getToken();
       if (token == null) {
         throw Exception('Authentication required');
       }
 
       final uri = Uri.parse('$baseUrl/lessons/$lessonId/complete');
-      final response = await http.post(
+      var response = await http.post(
         uri,
         headers: {
           'Content-Type': 'application/json',
@@ -79,8 +80,25 @@ class LessonService {
         },
       ).timeout(const Duration(seconds: 90));
 
+      if (response.statusCode == 401) {
+        final refreshedToken = await AuthService.refreshAccessToken();
+        if (refreshedToken != null) {
+          token = refreshedToken;
+          response = await http.post(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          ).timeout(const Duration(seconds: 90));
+        }
+      }
+
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      if (response.statusCode == 401) {
+        throw Exception('Session expired. Please log out and sign in again.');
       }
       throw Exception('Failed to complete lesson: ${response.statusCode}');
     } catch (e) {

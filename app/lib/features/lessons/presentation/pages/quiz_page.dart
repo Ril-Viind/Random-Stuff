@@ -24,6 +24,7 @@ class _QuizPageState extends State<QuizPage> {
   int _currentQuestionIndex = 0;
   int _score = 0;
   List<bool> _answeredCorrectly = [];
+  List<int?> _selectedOptionIndices = [];
   bool _showResults = false;
 
   @override
@@ -40,9 +41,14 @@ class _QuizPageState extends State<QuizPage> {
 
     try {
       final response = await LessonService.getModuleQuiz(widget.moduleId);
+      final loadedQuestions = (response['questions'] as List<dynamic>?) ?? [];
       setState(() {
-        _questions = response['questions'] as List<dynamic>;
+        _questions = loadedQuestions;
         _answeredCorrectly = List.filled(_questions.length, false);
+        _selectedOptionIndices = List.filled(_questions.length, null);
+        _currentQuestionIndex = 0;
+        _score = 0;
+        _showResults = false;
         _isLoading = false;
       });
     } catch (e) {
@@ -54,39 +60,41 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   void _selectAnswer(int optionIndex) {
-    if (_showResults) return;
+    if (_showResults ||
+        _questions.isEmpty ||
+        _currentQuestionIndex >= _questions.length ||
+        _selectedOptionIndices[_currentQuestionIndex] != null) {
+      return;
+    }
 
-    final currentQuestion = _questions[_currentQuestionIndex];
-    final correctAnswer = currentQuestion['correct_answer'] as String;
+    final questionIdx = _currentQuestionIndex;
+    final currentQuestion = _questions[questionIdx];
+    final correctAnswer =
+        (currentQuestion['correct_answer'] as String? ?? '').trim().toUpperCase();
     final selectedLetter = String.fromCharCode(65 + optionIndex); // A, B, C, D
-    
     final isCorrect = selectedLetter == correctAnswer;
-    
+
     setState(() {
-      _answeredCorrectly[_currentQuestionIndex] = isCorrect;
+      _selectedOptionIndices[questionIdx] = optionIndex;
+      _answeredCorrectly[questionIdx] = isCorrect;
       if (isCorrect) {
         _score++;
       }
     });
 
     // Move to next question or show results
-    if (_currentQuestionIndex < _questions.length - 1) {
-      Future.delayed(const Duration(milliseconds: 1500), () {
-        if (mounted) {
-          setState(() {
-            _currentQuestionIndex++;
-          });
-        }
-      });
-    } else {
-      Future.delayed(const Duration(milliseconds: 1500), () {
-        if (mounted) {
-          setState(() {
-            _showResults = true;
-          });
-        }
-      });
-    }
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      if (!mounted || _currentQuestionIndex != questionIdx) return;
+      if (questionIdx < _questions.length - 1) {
+        setState(() {
+          _currentQuestionIndex = questionIdx + 1;
+        });
+      } else {
+        setState(() {
+          _showResults = true;
+        });
+      }
+    });
   }
 
   void _restartQuiz() {
@@ -94,6 +102,7 @@ class _QuizPageState extends State<QuizPage> {
       _currentQuestionIndex = 0;
       _score = 0;
       _answeredCorrectly = List.filled(_questions.length, false);
+      _selectedOptionIndices = List.filled(_questions.length, null);
       _showResults = false;
     });
   }
@@ -229,7 +238,7 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   Widget _buildQuestionWidget(BuildContext context, bool isDark) {
-    if (_questions.isEmpty) {
+    if (_questions.isEmpty || _currentQuestionIndex >= _questions.length) {
       return Center(
         child: Text(
           'No questions available',
@@ -241,9 +250,12 @@ class _QuizPageState extends State<QuizPage> {
     }
 
     final currentQuestion = _questions[_currentQuestionIndex];
-    final question = currentQuestion['question'] as String;
-    final options = currentQuestion['options'] as List<dynamic>;
-    final hasAnswered = _answeredCorrectly[_currentQuestionIndex];
+    final question = currentQuestion['question'] as String? ?? '';
+    final options = (currentQuestion['options'] as List<dynamic>?) ?? [];
+    final selectedOptionIndex = _selectedOptionIndices[_currentQuestionIndex];
+    final hasAnswered = selectedOptionIndex != null;
+    final correctAnswer =
+        (currentQuestion['correct_answer'] as String? ?? '').trim().toUpperCase();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -270,15 +282,11 @@ class _QuizPageState extends State<QuizPage> {
             final index = entry.key;
             final option = entry.value.toString();
             final letter = String.fromCharCode(65 + index);
-            
-            bool isCorrect = false;
-            bool isSelected = false;
-            
-            if (hasAnswered) {
-              final correctAnswer = currentQuestion['correct_answer'] as String;
-              isCorrect = letter == correctAnswer;
-              isSelected = true;
-            }
+
+            final isCorrectOption = letter == correctAnswer;
+            final isSelected = hasAnswered &&
+                (index == selectedOptionIndex || isCorrectOption);
+            final isCorrect = hasAnswered && isCorrectOption;
 
             return _OptionCard(
               letter: letter,

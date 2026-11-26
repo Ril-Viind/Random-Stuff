@@ -14,6 +14,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -336,16 +337,27 @@ async def delete_roadmap(
         raise HTTPException(status_code=403, detail="Not authorized to delete this roadmap")
 
     module_ids = [mod.id for mod in roadmap.modules]
+    lesson_ids = (
+        [row[0] for row in db.query(Lesson.id).filter(Lesson.module_id.in_(module_ids))]
+        if module_ids
+        else []
+    )
+
+    # Delete progress rows first because UserProgress holds foreign keys to lessons, modules, and roadmaps.
+    progress_filters = [UserProgress.roadmap_id == roadmap_id]
+    if module_ids:
+        progress_filters.append(UserProgress.module_id.in_(module_ids))
+    if lesson_ids:
+        progress_filters.append(UserProgress.lesson_id.in_(lesson_ids))
+    db.query(UserProgress).filter(or_(*progress_filters)).delete(synchronize_session=False)
 
     if module_ids:
         db.query(QuizQuestion).filter(QuizQuestion.module_id.in_(module_ids)).delete(synchronize_session=False)
         db.query(ResearchSource).filter(ResearchSource.module_id.in_(module_ids)).delete(synchronize_session=False)
-        lesson_ids = [row[0] for row in db.query(Lesson.id).filter(Lesson.module_id.in_(module_ids))]
         if lesson_ids:
             db.query(LessonStep).filter(LessonStep.lesson_id.in_(lesson_ids)).delete(synchronize_session=False)
             db.query(Lesson).filter(Lesson.module_id.in_(module_ids)).delete(synchronize_session=False)
         db.query(Module).filter(Module.roadmap_id == roadmap_id).delete(synchronize_session=False)
 
-    db.query(UserProgress).filter(UserProgress.roadmap_id == roadmap_id).delete(synchronize_session=False)
-    db.delete(roadmap)
+    db.query(Roadmap).filter(Roadmap.id == roadmap_id).delete(synchronize_session=False)
     db.commit()

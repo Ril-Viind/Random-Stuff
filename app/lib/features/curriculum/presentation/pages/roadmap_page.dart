@@ -135,14 +135,18 @@ class _RoadmapPageState extends State<RoadmapPage> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Text(
-                    _roadmap != null
-                        ? _roadmap!['skill_name'] as String
-                        : 'Generating Roadmap…',
-                    style: AppTextStyles.h3.copyWith(
-                      color: isDark
-                          ? AppColors.textPrimaryDark
-                          : AppColors.textPrimaryLight,
+                  Expanded(
+                    child: Text(
+                      _roadmap != null
+                          ? _roadmap!['skill_name'] as String
+                          : 'Generating Roadmap…',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.h3.copyWith(
+                        color: isDark
+                            ? AppColors.textPrimaryDark
+                            : AppColors.textPrimaryLight,
+                      ),
                     ),
                   ),
                 ],

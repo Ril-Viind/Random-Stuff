@@ -26,9 +26,13 @@ class AuthService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final token = data['access_token'] as String;
+        final refreshToken = data['refresh_token'] as String?;
         final userData = data['user'] as Map<String, dynamic>;
 
         await _saveToken(token);
+        if (refreshToken != null) {
+          await _saveRefreshToken(refreshToken);
+        }
         await _saveUser(UserModel.fromJson(userData));
 
         return AuthResult.success(UserModel.fromJson(userData));
@@ -63,9 +67,13 @@ class AuthService {
       if (response.statusCode == 201) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final token = data['access_token'] as String;
+        final refreshToken = data['refresh_token'] as String?;
         final userData = data['user'] as Map<String, dynamic>;
 
         await _saveToken(token);
+        if (refreshToken != null) {
+          await _saveRefreshToken(refreshToken);
+        }
         await _saveUser(UserModel.fromJson(userData));
 
         return AuthResult.success(UserModel.fromJson(userData));
@@ -111,6 +119,49 @@ class AuthService {
   static Future<void> _saveToken(String token) async {
     final tokenBox = Hive.box<String>(_tokenBox);
     await tokenBox.put('token', token);
+  }
+
+  static Future<void> _saveRefreshToken(String refreshToken) async {
+    final tokenBox = Hive.box<String>(_tokenBox);
+    await tokenBox.put('refresh_token', refreshToken);
+  }
+
+  static Future<String?> refreshAccessToken() async {
+    try {
+      final tokenBox = Hive.box<String>(_tokenBox);
+      final refreshToken = tokenBox.get('refresh_token');
+      if (refreshToken == null || refreshToken.isEmpty) {
+        return null;
+      }
+
+      final uri = Uri.parse('$baseUrl/auth/refresh');
+      final response = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'refresh_token': refreshToken}),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final newToken = data['access_token'] as String;
+        final newRefreshToken = data['refresh_token'] as String?;
+        final userData = data['user'] as Map<String, dynamic>?;
+
+        await _saveToken(newToken);
+        if (newRefreshToken != null) {
+          await _saveRefreshToken(newRefreshToken);
+        }
+        if (userData != null) {
+          await _saveUser(UserModel.fromJson(userData));
+        }
+        return newToken;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
 
   static Future<void> _saveUser(UserModel user) async {
