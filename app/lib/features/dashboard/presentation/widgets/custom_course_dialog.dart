@@ -92,24 +92,27 @@ class _CustomCourseDialogState extends ConsumerState<CustomCourseDialog> {
             width: AppConstants.cardBorderWidth,
           ),
         ),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Create Custom Course',
-                    style: AppTextStyles.h3.copyWith(
-                      color: isDark
-                          ? AppColors.textPrimaryDark
-                          : AppColors.textPrimaryLight,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Create Custom Course',
+                        style: AppTextStyles.h3.copyWith(
+                          color: isDark
+                              ? AppColors.textPrimaryDark
+                              : AppColors.textPrimaryLight,
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: AppConstants.spacingSm),
                   GestureDetector(
                     onTap: () => context.pop(),
                     child: Container(
@@ -256,6 +259,7 @@ class _CustomCourseDialogState extends ConsumerState<CustomCourseDialog> {
                 ),
                 child: Wrap(
                   spacing: 8,
+                  runSpacing: 8,
                   children: _weekOptions.map((weeks) {
                     final isSelected = _selectedWeeks == weeks;
                     return GestureDetector(
@@ -329,6 +333,7 @@ class _CustomCourseDialogState extends ConsumerState<CustomCourseDialog> {
           ),
         ),
       ),
+    ),
     );
   }
 }
