@@ -50,11 +50,17 @@ android {
 
     buildTypes {
         release {
-            if (!hasReleaseKeystore) {
-                throw GradleException("Missing android/key.properties. Create it from key.properties.example before building a Play release.")
+            if (hasReleaseKeystore) {
+                signingConfig = signingConfigs.getByName("release")
             }
-            signingConfig = signingConfigs.getByName("release")
         }
+    }
+}
+
+gradle.taskGraph.whenReady {
+    val isReleaseBuild = allTasks.any { it.name.contains("Release") }
+    if (isReleaseBuild && !hasReleaseKeystore) {
+        throw GradleException("Missing android/key.properties. Create it from key.properties.example before building a Play release.")
     }
 }
 
